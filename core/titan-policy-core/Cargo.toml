@@ -1,0 +1,9 @@
+[package]
+name = "titan-policy-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dmc-types = { path = "../dmc-types" }
+titan-identity = { path = "../titan-identity" }

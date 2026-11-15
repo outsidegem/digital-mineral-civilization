@@ -1,0 +1,8 @@
+[package]
+name = "titan-identity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dmc-types = { path = "../dmc-types" }

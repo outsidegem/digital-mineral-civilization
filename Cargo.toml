@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+  "core/dmc-types",
+  "core/titan-policy-core",
+  "core/titan-identity",
+  "core/titan-audit",
+]
+
+[workspace.package]
+edition = "2021"
+license = "UNLICENSED"
+version = "0.1.0"

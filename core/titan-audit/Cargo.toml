@@ -1,0 +1,10 @@
+[package]
+name = "titan-audit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dmc-types = { path = "../dmc-types" }
+titan-identity = { path = "../titan-identity" }
+titan-policy-core = { path = "../titan-policy-core" }

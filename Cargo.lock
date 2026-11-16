@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "dmc-simulator"
+version = "0.1.0"
+dependencies = [
+ "dmc-types",
+ "titan-audit",
+ "titan-identity",
+ "titan-policy-core",
+]
+
+[[package]]
 name = "dmc-types"
 version = "0.1.0"
 

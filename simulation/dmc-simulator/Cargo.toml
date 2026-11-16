@@ -1,0 +1,11 @@
+[package]
+name = "dmc-simulator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dmc-types = { path = "../../core/dmc-types" }
+titan-identity = { path = "../../core/titan-identity" }
+titan-policy-core = { path = "../../core/titan-policy-core" }
+titan-audit = { path = "../../core/titan-audit" }

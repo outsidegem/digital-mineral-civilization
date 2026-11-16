@@ -8,6 +8,11 @@ use crate::types::SimulationReport;
 /// Executes the foundation scenario, writes reports, and outputs results.
 pub fn execute_foundation(json_mode: bool) -> i32 {
     let report = run_foundation_scenario();
+    // Validate identifiers before persisting report.
+    if let Err(e) = crate::report::validate_report_identifiers(&report) {
+        eprintln!("Error: Identifier validation failed: {}", e);
+        return 1;
+    }
     let json_content = report_to_json(&report);
 
     // Save report to disk (ignored directory)
@@ -18,7 +23,9 @@ pub fn execute_foundation(json_mode: bool) -> i32 {
             }
         }
         Err(e) => {
-            eprintln!("Warning: Failed to save report to disk: {e}");
+            eprintln!("Error: Failed to save report: {}", e);
+            // Propagate failure via nonzero exit code.
+            return 1;
         }
     }
 
@@ -49,6 +56,14 @@ pub fn execute_all(json_mode: bool) -> i32 {
 
     let suite_json = report_suite_to_json(&reports);
 
+    // Validate identifiers for each report in the suite.
+    for r in &reports {
+        if let Err(e) = crate::report::validate_report_identifiers(r) {
+            eprintln!("Error: Identifier validation failed: {}", e);
+            return 1;
+        }
+    }
+
     // Save suite report to disk
     match save_report("all_scenarios_report.json", &suite_json) {
         Ok(path) => {
@@ -57,7 +72,8 @@ pub fn execute_all(json_mode: bool) -> i32 {
             }
         }
         Err(e) => {
-            eprintln!("Warning: Failed to save report to disk: {e}");
+            eprintln!("Error: Failed to save suite report: {}", e);
+            return 1;
         }
     }
 

@@ -1,0 +1,60 @@
+name: DMC M1 Constitutional Core Validation
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dmc-m1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: M1 Build, Tests and Policy Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify workspace formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy static analysis
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Compile and test entire workspace
+        run: cargo test --workspace --locked
+
+      - name: Verify E2 sandbox authorization
+        run: cargo test -p titan-policy-core --locked e2_can_create_sandbox_report
+
+      - name: Verify treasury transfer denial
+        run: cargo test -p titan-policy-core --locked e2_cannot_transfer_treasury_funds
+
+      - name: Verify missing identity denial
+        run: cargo test -p titan-policy-core --locked missing_identity_fails_closed
+
+      - name: Verify reserved authority denial
+        run: cargo test -p titan-policy-core --locked e5_reserved_authority_fails_closed
+
+      - name: Verify unknown action denial
+        run: cargo test -p titan-policy-core --locked unknown_action_fails_closed
+
+      - name: Build documentation
+        run: cargo doc --workspace --no-deps --locked

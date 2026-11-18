@@ -2,13 +2,13 @@
 //!
 //! # M1.1 Security Boundaries
 //! - [`policy_evaluate`] is the isolated M1 legacy claim simulation API. It always returns
-//!   [`dmc_types::PolicyTrustLevel::LegacyUnverifiedSimulationOnly`] with
+//!   [`crate::PolicyTrustLevel::LegacyUnverifiedSimulationOnly`] with
 //!   `execution_authorized() == false`.
 //! - [`policy_evaluate_authorized`] performs detached structural checks without live registry or
 //!   provenance tracker state. It always returns
-//!   [`dmc_types::PolicyTrustLevel::ProvisionalIdentityOnly`] with `execution_authorized() == false`.
+//!   [`crate::PolicyTrustLevel::ProvisionalIdentityOnly`] with `execution_authorized() == false`.
 //! - [`policy_evaluate_strict_provenance`] is the **only** path that can produce a
-//!   [`dmc_types::PolicyTrustLevel::LiveProvenanceVerified`] result with
+//!   [`crate::PolicyTrustLevel::LiveProvenanceVerified`] result with
 //!   `execution_authorized() == true`, requiring live verification against both
 //!   [`titan_identity::ProvisionalIdentityRegistry`] and [`titan_identity::ProvenanceTracker`].
 
@@ -320,7 +320,7 @@ pub fn policy_evaluate_authorized(request: &AuthorizedPolicyRequest) -> PolicyRe
 /// [`ProvenanceTracker`] state.
 ///
 /// This is the **only** function capable of producing a [`PolicyResult`] with
-/// [`dmc_types::PolicyTrustLevel::LiveProvenanceVerified`] and `execution_authorized() == true`.
+/// [`crate::PolicyTrustLevel::LiveProvenanceVerified`] and `execution_authorized() == true`.
 /// Fails closed if the identity or any ancestor agent/issuer is revoked, if the identity came
 /// from a different registry instance, if process/delegation records are unregistered or forged,
 /// or if any scope/action/expiration constraint is violated.

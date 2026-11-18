@@ -1,7 +1,7 @@
 //! Tests for input identifier bounds.
 
-use dmc_simulator::types::SimulationReport;
 use dmc_simulator::report::validate_report_identifiers;
+use dmc_simulator::types::SimulationReport;
 
 #[test]
 fn test_identifier_exceeds_max_length() {
@@ -25,5 +25,8 @@ fn test_identifier_exceeds_max_length() {
         details: Vec::new(),
     };
     let res = validate_report_identifiers(&report);
-    assert!(res.is_err(), "Identifier length validation should fail for overly long strings");
+    assert!(
+        res.is_err(),
+        "Identifier length validation should fail for overly long strings"
+    );
 }

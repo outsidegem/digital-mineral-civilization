@@ -12,8 +12,11 @@ pub const MAX_IDENTIFIER_BYTE_LEN: usize = 128;
 /// Validates identifier fields in a SimulationReport do not exceed the byte limit.
 pub fn validate_report_identifiers(report: &SimulationReport) -> Result<(), String> {
     let check = |name: &str, value: &str| {
-        if value.as_bytes().len() > MAX_IDENTIFIER_BYTE_LEN {
-            Err(format!("{} exceeds maximum byte length of {}", name, MAX_IDENTIFIER_BYTE_LEN))
+        if value.len() > MAX_IDENTIFIER_BYTE_LEN {
+            Err(format!(
+                "{} exceeds maximum byte length of {}",
+                name, MAX_IDENTIFIER_BYTE_LEN
+            ))
         } else {
             Ok(())
         }
@@ -24,9 +27,15 @@ pub fn validate_report_identifiers(report: &SimulationReport) -> Result<(), Stri
     check("agent_identity", &report.agent_identity)?;
     check("department", &report.department)?;
     check("requested_action", &report.requested_action)?;
-    // Verification results – generally short, but still validated for completeness
-    check("identity_verification_result", &report.identity_verification_result)?;
-    check("provenance_verification_result", &report.provenance_verification_result)?;
+    // Verification results
+    check(
+        "identity_verification_result",
+        &report.identity_verification_result,
+    )?;
+    check(
+        "provenance_verification_result",
+        &report.provenance_verification_result,
+    )?;
     // Policy fields
     check("policy_decision", &report.policy_decision)?;
     check("policy_reason", &report.policy_reason)?;
@@ -58,299 +67,6 @@ pub fn escape_json_str(s: &str) -> String {
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
             c if (c as u32) < 32 => {
-                out.push_str(&format!("\\u{{:04x}}", c as u32));
-            }
-            c => out.push(c),
-        }
-    }
-    out
-}
-
-// ... (rest of file unchanged until save_report) ...
-
-// ... (previous content up to save_report) ...
-// ... (previous content up to save_report) ...
-/// Writes a report JSON file to the target output directory, creating parents as needed.
-/// This is a thin wrapper that reads configuration from environment variables for
-/// backward compatibility. For deterministic testing, use `save_report_impl` directly.
-pub fn save_report(filename: &str, content: &str) -> std::io::Result<PathBuf> {
-    // Destination directory from env (or default).
-    let output_dir_str = std::env::var("DMC_OUTPUT_DIR").unwrap_or_else(|_| "output".to_string());
-    let output_dir = Path::new(&output_dir_str);
-    // Optional deterministic suffix for tests.
-    let base_suffix = std::env::var("DMC_TEMP_SUFFIX").ok();
-    save_report_impl(output_dir, filename, content, base_suffix.as_deref(), false, false)
-}
-
-/// Internal implementation used by both the public API and tests.
-/// `fail_write` and `fail_rename` are test‑only injection flags.
-#[cfg(any(test, feature = "test-helper"))]
-pub(crate) fn save_report_impl(
-    output_dir: &Path,
-    filename: &str,
-    content: &str,
-    base_suffix: Option<&str>,
-    fail_write: bool,
-    fail_rename: bool,
-) -> std::io::Result<PathBuf> {
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
-
-    let mut attempts = 0usize;
-    let max_attempts = 10usize;
-    loop {
-        attempts += 1;
-        let mut tmp_path = output_dir.join(filename);
-        let uniq = if let Some(base) = base_suffix {
-            format!('.tmp-{}-{}', base, attempts)
-        } else {
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            format!('.tmp-{}-{}-{}', std::process::id(), nanos, attempts)
-        };
-        tmp_path.set_file_name(format!("{}{}", filename, uniq));
-
-        // Try exclusive creation.
-        match OpenOptions::new().write(true).create_new(true).open(&tmp_path) {
-            Ok(mut file) => {
-                if fail_write {
-                    // Simulate write failure.
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced write failure"));
-                }
-                if let Err(e) = std::io::Write::write_all(&mut file, content.as_bytes()) {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(e);
-                }
-                // Ensure file handle is closed before rename.
-                drop(file);
-                if fail_rename {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced rename failure"));
-                }
-                let final_path = output_dir.join(filename);
-                match fs::rename(&tmp_path, &final_path) {
-                    Ok(_) => return Ok(final_path),
-                    Err(e) => {
-                        let _ = fs::remove_file(&tmp_path);
-                        return Err(e);
-                    }
-                }
-            }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::AlreadyExists && attempts < max_attempts {
-                    continue;
-                } else {
-                    return Err(e);
-                }
-            }
-        }
-    }
-}
-// ... (rest unchanged) ...
-/// The function writes to a uniquely‑named temporary file first, then atomically renames
-/// it to the final name. The temporary file is never overwritten; if a collision occurs
-/// a new candidate name is generated. All temporary files are cleaned up on any error.
-/// The implementation uses only the standard library.
-pub fn save_report(filename: &str, content: &str) -> std::io::Result<PathBuf> {
-    // Destination directory
-    let output_dir_str = std::env::var("DMC_OUTPUT_DIR").unwrap_or_else(|_| "output".to_string());
-    let output_dir = Path::new(&output_dir_str);
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
-
-    // Base suffix for deterministic testing (optional)
-    let base_suffix = std::env::var("DMC_TEMP_SUFFIX").ok();
-
-    // Unique temporary file creation loop.
-    let mut attempts = 0usize;
-    let max_attempts = 10usize;
-    loop {
-        attempts += 1;
-        // Build candidate path.
-        let mut tmp_path = output_dir.join(filename);
-        let uniq = if let Some(ref base) = base_suffix {
-            // Use provided base plus attempt counter to guarantee different name each retry.
-            format!('.tmp-{}-{}', base, attempts)
-        } else {
-            // Fallback to pid + nanos + attempt.
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            format!('.tmp-{}-{}-{}', std::process::id(), nanos, attempts)
-        };
-        tmp_path.set_file_name(format!("{}{}", filename, uniq));
-
-        // Try to create the file exclusively.
-        let open_res = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&tmp_path);
-        match open_res {
-            Ok(mut file) => {
-                // Optional deterministic failure injection for write errors (test‑only).
-                #[cfg(test)]
-                if std::env::var("FORCE_SAVE_FAIL").as_deref() == Ok("1") {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced save failure"));
-                }
-                // Write content.
-                if let Err(e) = std::io::Write::write_all(&mut file, content.as_bytes()) {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(e);
-                }
-                // Optional deterministic failure injection for rename errors (test‑only).
-                #[cfg(test)]
-                if std::env::var("FORCE_RENAME_FAIL").as_deref() == Ok("1") {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced rename failure"));
-                }
-                // Attempt atomic rename.
-                let final_path = output_dir.join(filename);
-                match fs::rename(&tmp_path, &final_path) {
-                    Ok(_) => return Ok(final_path),
-                    Err(e) => {
-                        let _ = fs::remove_file(&tmp_path);
-                        return Err(e);
-                    }
-                }
-            }
-            Err(e) => {
-                // If the file already exists, try a new name (collision).
-                if e.kind() == std::io::ErrorKind::AlreadyExists && attempts < max_attempts {
-                    continue; // generate a new suffix on next loop iteration.
-                } else {
-                    return Err(e);
-                }
-            }
-        }
-    }
-}
-// ... (rest of file unchanged) ...
-/// The function writes to a uniquely‑named temporary file first, then atomically renames
-/// it to the final name. The temporary file is never overwritten; if a collision occurs
-/// a new candidate name is generated. All temporary files are cleaned up on any error.
-///
-/// The implementation uses only the standard library – no external time crates are required.
-pub fn save_report(filename: &str, content: &str) -> std::io::Result<PathBuf> {
-    // Destination directory
-    let output_dir_str = std::env::var("DMC_OUTPUT_DIR").unwrap_or_else(|_| "output".to_string());
-    let output_dir = Path::new(&output_dir_str);
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
-
-    // Helper to compute a deterministic suffix for testing if provided.
-    fn deterministic_suffix() -> Option<String> {
-        std::env::var("DMC_TEMP_SUFFIX").ok().map(|s| format!(".tmp-{}", s))
-    }
-
-    // Unique temporary file creation loop.
-    let mut attempts = 0;
-    let max_attempts = 10;
-    loop {
-        attempts += 1;
-        // Build candidate path.
-        let mut tmp_path = output_dir.join(filename);
-        let uniq = if let Some(suffix) = deterministic_suffix() {
-            suffix
-        } else {
-            // Fallback to pid + nanos.
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            format!('.tmp-{}-{}', std::process::id(), nanos)
-        };
-        tmp_path.set_file_name(format!("{}{}", filename, uniq));
-
-        // Try to create the file exclusively.
-        let open_res = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&tmp_path);
-        match open_res {
-            Ok(mut file) => {
-                // Optional deterministic failure injection for testing.
-                if std::env::var("FORCE_SAVE_FAIL").as_deref() == Ok("1") {
-                    // Simulate a write error.
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced failure"));
-                }
-                // Write content.
-                if let Err(e) = std::io::Write::write_all(&mut file, content.as_bytes()) {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(e);
-                }
-                // Attempt atomic rename.
-                let final_path = output_dir.join(filename);
-                match fs::rename(&tmp_path, &final_path) {
-                    Ok(_) => return Ok(final_path),
-                    Err(e) => {
-                        let _ = fs::remove_file(&tmp_path);
-                        return Err(e);
-                    }
-                }
-            }
-            Err(e) => {
-                // If the file already exists, try a new name (collision).
-                if e.kind() == std::io::ErrorKind::AlreadyExists && attempts < max_attempts {
-                    continue; // generate a new suffix on next loop iteration.
-                } else {
-                    return Err(e);
-                }
-            }
-        }
-    }
-}
-
-// ... (rest of file unchanged) ...
-
-
-use std::fs;
-use std::path::{Path, PathBuf};
-
-
-use crate::types::{AcceptanceCriterion, AuditEventSummary, SimulationReport};
-
-/// Maximum allowed byte length for external identifier strings.
-pub const MAX_IDENTIFIER_BYTE_LEN: usize = 128;
-
-/// Validates identifier fields in a SimulationReport do not exceed the byte limit.
-pub fn validate_report_identifiers(report: &SimulationReport) -> Result<(), String> {
-    let check = |name: &str, value: &str| {
-        if value.as_bytes().len() > MAX_IDENTIFIER_BYTE_LEN {
-            Err(format!("{} exceeds maximum byte length of {}", name, MAX_IDENTIFIER_BYTE_LEN))
-        } else {
-            Ok(())
-        }
-    };
-    check("scenario_id", &report.scenario_id)?;
-    check("simulation_run_id", &report.simulation_run_id)?;
-    check("agent_identity", &report.agent_identity)?;
-    check("department", &report.department)?;
-    check("requested_action", &report.requested_action)?;
-    // Additional fields can be added as needed.
-    Ok(())
-}
-
-
-/// Escapes a string slice for inclusion in a JSON string literal.
-pub fn escape_json_str(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 16);
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 32 => {
                 out.push_str(&format!("\\u{:04x}", c as u32));
             }
             c => out.push(c),
@@ -362,32 +78,24 @@ pub fn escape_json_str(s: &str) -> String {
 /// Converts an [`AcceptanceCriterion`] to a pretty-printed JSON fragment.
 fn criterion_to_json(c: &AcceptanceCriterion, indent: &str) -> String {
     format!(
-        "{indent}{{\n\
-         {indent}  \"name\": \"{}\",\n\
-         {indent}  \"passed\": {},\n\
-         {indent}  \"detail\": \"{}\"\n\
-         {indent}}}",
+        "{indent}{{\n{indent}  \"name\": \"{}\",\n{indent}  \"passed\": {},\n{indent}  \"detail\": \"{}\"\n{indent}}}",
         escape_json_str(&c.name),
         c.passed,
-        escape_json_str(&c.detail)
+        escape_json_str(&c.detail),
+        indent = indent,
     )
 }
 
 /// Converts an [`AuditEventSummary`] to a pretty-printed JSON fragment.
 fn audit_event_to_json(e: &AuditEventSummary, indent: &str) -> String {
     format!(
-        "{indent}{{\n\
-         {indent}  \"event_id\": \"{}\",\n\
-         {indent}  \"sequence\": {},\n\
-         {indent}  \"event_kind\": \"{}\",\n\
-         {indent}  \"decision\": \"{}\",\n\
-         {indent}  \"resource\": \"{}\"\n\
-         {indent}}}",
+        "{indent}{{\n{indent}  \"event_id\": \"{}\",\n{indent}  \"sequence\": {},\n{indent}  \"event_kind\": \"{}\",\n{indent}  \"decision\": \"{}\",\n{indent}  \"resource\": \"{}\"\n{indent}}}",
         escape_json_str(&e.event_id),
         e.sequence,
         escape_json_str(&e.event_kind),
         escape_json_str(&e.decision),
-        escape_json_str(&e.resource)
+        escape_json_str(&e.resource),
+        indent = indent,
     )
 }
 
@@ -424,23 +132,7 @@ pub fn report_to_json(report: &SimulationReport) -> String {
     };
 
     format!(
-        "{{\n\
-         \"scenario_id\": \"{}\",\n\
-         \"simulation_run_id\": \"{}\",\n\
-         \"agent_identity\": \"{}\",\n\
-         \"department\": \"{}\",\n\
-         \"requested_action\": \"{}\",\n\
-         \"identity_verification_result\": \"{}\",\n\
-         \"provenance_verification_result\": \"{}\",\n\
-         \"policy_decision\": \"{}\",\n\
-         \"policy_reason\": \"{}\",\n\
-         \"execution_authorized\": {},\n\
-         \"execution_outcome\": \"{}\",\n\
-         \"audit_events\": {},\n\
-         \"acceptance_criteria\": {},\n\
-         \"overall_pass\": {},\n\
-         \"details\": {}\n\
-         }}\n",
+        "{{\n  \"scenario_id\": \"{}\",\n  \"simulation_run_id\": \"{}\",\n  \"agent_identity\": \"{}\",\n  \"department\": \"{}\",\n  \"requested_action\": \"{}\",\n  \"identity_verification_result\": \"{}\",\n  \"provenance_verification_result\": \"{}\",\n  \"policy_decision\": \"{}\",\n  \"policy_reason\": \"{}\",\n  \"execution_authorized\": {},\n  \"execution_outcome\": \"{}\",\n  \"audit_events\": {},\n  \"acceptance_criteria\": {},\n  \"overall_pass\": {},\n  \"details\": {}\n}}",
         escape_json_str(&report.scenario_id),
         escape_json_str(&report.simulation_run_id),
         escape_json_str(&report.agent_identity),
@@ -470,7 +162,7 @@ pub fn report_suite_to_json(reports: &[SimulationReport]) -> String {
             let json_single = report_to_json(r);
             let indented: String = json_single
                 .lines()
-                .map(|line| format!("    {line}"))
+                .map(|line| format!("    {}", line))
                 .collect::<Vec<_>>()
                 .join("\n");
             report_strings.push(indented);
@@ -479,37 +171,16 @@ pub fn report_suite_to_json(reports: &[SimulationReport]) -> String {
     };
 
     format!(
-        "{{\n\
-         \"suite_total\": {},\n\
-         \"suite_passed\": {},\n\
-         \"all_passed\": {},\n\
-         \"scenarios\": {}\n\
-         }}\n",
+        "{{\n  \"suite_total\": {},\n  \"suite_passed\": {},\n  \"all_passed\": {},\n  \"scenarios\": {}\n}}",
         reports.len(),
         reports.iter().filter(|r| r.overall_pass).count(),
         all_passed,
-        scenarios_block
+        scenarios_block,
     )
 }
 
-// ... (previous content up to save_report) ...
-// ... (previous content up to save_report) ...
-/// Writes a report JSON file to the target output directory, creating parents as needed.
-/// This is a thin wrapper that reads configuration from environment variables for
-/// backward compatibility. For deterministic testing, use `save_report_impl` directly.
-pub fn save_report(filename: &str, content: &str) -> std::io::Result<PathBuf> {
-    // Destination directory from env (or default).
-    let output_dir_str = std::env::var("DMC_OUTPUT_DIR").unwrap_or_else(|_| "output".to_string());
-    let output_dir = Path::new(&output_dir_str);
-    // Optional deterministic suffix for tests.
-    let base_suffix = std::env::var("DMC_TEMP_SUFFIX").ok();
-    save_report_impl(output_dir, filename, content, base_suffix.as_deref(), false, false)
-}
-
-/// Internal implementation used by both the public API and tests.
-/// `fail_write` and `fail_rename` are test‑only injection flags.
-#[cfg(any(test, feature = "test-helper"))]
-pub(crate) fn save_report_impl(
+/// Core persistence logic, always compiled.
+fn save_report_internal(
     output_dir: &Path,
     filename: &str,
     content: &str,
@@ -517,189 +188,110 @@ pub(crate) fn save_report_impl(
     fail_write: bool,
     fail_rename: bool,
 ) -> std::io::Result<PathBuf> {
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
+    // Validate filename – must be a single normal path component.
+    if filename.is_empty()
+        || Path::new(filename).file_name().and_then(|n| n.to_str()) != Some(filename)
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "report filename must be a single normal path component",
+        ));
     }
 
-    let mut attempts = 0usize;
-    let max_attempts = 10usize;
-    loop {
-        attempts += 1;
-        let mut tmp_path = output_dir.join(filename);
-        let uniq = if let Some(base) = base_suffix {
-            format!('.tmp-{}-{}', base, attempts)
+    fs::create_dir_all(output_dir)?;
+
+    for _attempt in 0..10 {
+        let temp_name = if let Some(suffix) = base_suffix {
+            format!("{}.tmp-{}", filename, suffix)
         } else {
             let nanos = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_nanos();
-            format!('.tmp-{}-{}-{}', std::process::id(), nanos, attempts)
+            format!(
+                "{}.tmp-{}-{}-{}",
+                filename,
+                std::process::id(),
+                nanos,
+                _attempt
+            )
         };
-        tmp_path.set_file_name(format!("{}{}", filename, uniq));
-
-        // Try exclusive creation.
-        match OpenOptions::new().write(true).create_new(true).open(&tmp_path) {
-            Ok(mut file) => {
-                if fail_write {
-                    // Simulate write failure.
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced write failure"));
-                }
-                if let Err(e) = std::io::Write::write_all(&mut file, content.as_bytes()) {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(e);
-                }
-                // Ensure file handle is closed before rename.
-                drop(file);
-                if fail_rename {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced rename failure"));
-                }
-                let final_path = output_dir.join(filename);
-                match fs::rename(&tmp_path, &final_path) {
-                    Ok(_) => return Ok(final_path),
-                    Err(e) => {
-                        let _ = fs::remove_file(&tmp_path);
-                        return Err(e);
-                    }
-                }
-            }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::AlreadyExists && attempts < max_attempts {
-                    continue;
-                } else {
-                    return Err(e);
-                }
-            }
-        }
-    }
-}
-// ... (rest unchanged) ...
-/// The function writes to a uniquely‑named temporary file first, then atomically renames
-/// it to the final name. The temporary file is never overwritten; if a collision occurs
-/// a new candidate name is generated. All temporary files are cleaned up on any error.
-/// The implementation uses only the standard library.
-pub fn save_report(filename: &str, content: &str) -> std::io::Result<PathBuf> {
-    // Destination directory
-    let output_dir_str = std::env::var("DMC_OUTPUT_DIR").unwrap_or_else(|_| "output".to_string());
-    let output_dir = Path::new(&output_dir_str);
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
-
-    // Base suffix for deterministic testing (optional)
-    let base_suffix = std::env::var("DMC_TEMP_SUFFIX").ok();
-
-    // Unique temporary file creation loop.
-    let mut attempts = 0usize;
-    let max_attempts = 10usize;
-    loop {
-        attempts += 1;
-        // Build candidate path.
-        let mut tmp_path = output_dir.join(filename);
-        let uniq = if let Some(ref base) = base_suffix {
-            // Use provided base plus attempt counter to guarantee different name each retry.
-            format!('.tmp-{}-{}', base, attempts)
-        } else {
-            // Fallback to pid + nanos + attempt.
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            format!('.tmp-{}-{}-{}', std::process::id(), nanos, attempts)
-        };
-        tmp_path.set_file_name(format!("{}{}", filename, uniq));
-
-        // Try to create the file exclusively.
-        let open_res = OpenOptions::new()
+        let temp_path = output_dir.join(&temp_name);
+        let mut file = match OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&tmp_path);
-        match open_res {
-            Ok(mut file) => {
-                // Optional deterministic failure injection for write errors (test‑only).
-                #[cfg(test)]
-                if std::env::var("FORCE_SAVE_FAIL").as_deref() == Ok("1") {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced save failure"));
-                }
-                // Write content.
-                if let Err(e) = std::io::Write::write_all(&mut file, content.as_bytes()) {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(e);
-                }
-                // Optional deterministic failure injection for rename errors (test‑only).
-                #[cfg(test)]
-                if std::env::var("FORCE_RENAME_FAIL").as_deref() == Ok("1") {
-                    let _ = fs::remove_file(&tmp_path);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "forced rename failure"));
-                }
-                // Attempt atomic rename.
-                let final_path = output_dir.join(filename);
-                match fs::rename(&tmp_path, &final_path) {
-                    Ok(_) => return Ok(final_path),
-                    Err(e) => {
-                        let _ = fs::remove_file(&tmp_path);
-                        return Err(e);
-                    }
-                }
-            }
+            .open(&temp_path)
+        {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        };
+        if fail_write {
+            let _ = fs::remove_file(&temp_path);
+            return Err(std::io::Error::other("forced write failure"));
+        }
+        if let Err(e) = std::io::Write::write_all(&mut file, content.as_bytes()) {
+            let _ = fs::remove_file(&temp_path);
+            return Err(e);
+        }
+        if let Err(e) = file.sync_all() {
+            let _ = fs::remove_file(&temp_path);
+            return Err(e);
+        }
+        drop(file);
+        if fail_rename {
+            let _ = fs::remove_file(&temp_path);
+            return Err(std::io::Error::other("forced rename failure"));
+        }
+        let final_path = output_dir.join(filename);
+        match fs::rename(&temp_path, &final_path) {
+            Ok(()) => return Ok(final_path),
             Err(e) => {
-                // If the file already exists, try a new name (collision).
-                if e.kind() == std::io::ErrorKind::AlreadyExists && attempts < max_attempts {
-                    continue; // generate a new suffix on next loop iteration.
-                } else {
-                    return Err(e);
-                }
+                let _ = fs::remove_file(&temp_path);
+                return Err(e);
             }
         }
     }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "could not create a unique temporary report file",
+    ))
 }
-// ... (rest of file unchanged) ...
+
+/// Internal implementation of report persistence used by tests.
+#[cfg(test)]
+pub fn save_report_impl(
+    output_dir: &Path,
+    filename: &str,
+    content: &str,
+    base_suffix: Option<&str>,
+    fail_write: bool,
+    fail_rename: bool,
+) -> std::io::Result<PathBuf> {
+    save_report_internal(
+        output_dir,
+        filename,
+        content,
+        base_suffix,
+        fail_write,
+        fail_rename,
+    )
+}
+
+/// Writes a report through an exclusive temporary file followed by an atomic rename.
 pub fn save_report(filename: &str, content: &str) -> std::io::Result<PathBuf> {
-    // Write to a temporary file first to ensure atomicity.
-    // The temp file is created in the same output directory to guarantee rename is atomic on most filesystems.
     let output_dir_str = std::env::var("DMC_OUTPUT_DIR").unwrap_or_else(|_| "output".to_string());
     let output_dir = Path::new(&output_dir_str);
-    if !output_dir.exists() {
-        fs::create_dir_all(output_dir)?;
-    }
-    // Generate a unique temp filename.
-    let mut tmp_path = output_dir.join(filename);
-    // Append a unique suffix.
-    let uniq = format!(".tmp-{}-{}", std::process::id(), chrono::Utc::now().timestamp_nanos());
-    tmp_path.set_file_name(format!("{}{}", filename, uniq));
-    // Write content to temp file.
-    match fs::write(&tmp_path, content) {
-        Ok(_) => {
-            // Attempt atomic rename.
-            let final_path = output_dir.join(filename);
-            match fs::rename(&tmp_path, &final_path) {
-                Ok(_) => Ok(final_path),
-                Err(e) => {
-                    // Cleanup temp file on rename failure.
-                    let _ = fs::remove_file(&tmp_path);
-                    Err(e)
-                }
-            }
-        }
-        Err(e) => {
-            // Cleanup temp file on write failure.
-            let _ = fs::remove_file(&tmp_path);
-            Err(e)
-        }
-    }
+    save_report_internal(output_dir, filename, content, None, false, false)
 }
 
-
-/// Prints a human-readable terminal summary of a simulation report.
+/// Prints a human‑readable terminal summary of a simulation report.
 pub fn print_terminal_summary(report: &SimulationReport) {
     let status_badge = if report.overall_pass {
         "\x1b[32m[PASS]\x1b[0m"
     } else {
         "\x1b[31m[FAIL]\x1b[0m"
     };
-
     println!("================================================================================");
     println!(
         "  DMC SIMULATION REPORT: {} {}",
@@ -739,12 +331,16 @@ pub fn print_terminal_summary(report: &SimulationReport) {
             );
         }
     }
-    println!("================================================================================\n");
+    println!("================================================================================");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
+    use std::fs;
+    use std::io::Read;
+    use std::path::PathBuf;
 
     #[test]
     fn json_escaping_handles_special_characters() {
@@ -782,11 +378,110 @@ mod tests {
             overall_pass: true,
             details: vec!["execution completed".into()],
         };
-
         let json = report_to_json(&report);
         assert!(json.contains("\"scenario_id\": \"test-01\""));
         assert!(json.contains("\"overall_pass\": true"));
         assert!(json.contains("\"audit_events\": ["));
         assert!(json.contains("\"sequence\": 1"));
+    }
+
+    fn temp_dir() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+
+        let dir = env::temp_dir().join(format!(
+            "dmc_test_{}_{}_{}",
+            std::process::id(),
+            nanos,
+            unique
+        ));
+
+        fs::create_dir(&dir).expect("failed to create unique test directory");
+        dir
+    }
+
+    #[test]
+    fn save_report_successful_persistence() {
+        let dir = temp_dir();
+        let filename = "report.json";
+        let content = "{\"key\": \"value\"}";
+        let result = save_report_impl(&dir, filename, content, None, false, false)
+            .expect("save_report_impl should succeed");
+        assert!(result.exists());
+        let mut read = String::new();
+        fs::File::open(&result)
+            .unwrap()
+            .read_to_string(&mut read)
+            .unwrap();
+        assert_eq!(read, content);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_report_forced_write_failure_cleanup() {
+        let dir = temp_dir();
+        let filename = "write_fail.json";
+        let content = "data";
+        let err = save_report_impl(&dir, filename, content, Some("suffix"), true, false)
+            .expect_err("expected forced write failure");
+        assert_eq!(err.kind(), std::io::ErrorKind::Other);
+        let temp_path = dir.join(format!("{}.tmp-suffix", filename));
+        assert!(
+            !temp_path.exists(),
+            "temp file should be removed on write failure"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_report_forced_rename_failure_cleanup() {
+        let dir = temp_dir();
+        let filename = "rename_fail.json";
+        let content = "data";
+        let err = save_report_impl(&dir, filename, content, Some("suffix"), false, true)
+            .expect_err("expected forced rename failure");
+        assert_eq!(err.kind(), std::io::ErrorKind::Other);
+        let temp_path = dir.join(format!("{}.tmp-suffix", filename));
+        assert!(
+            !temp_path.exists(),
+            "temp file should be removed on rename failure"
+        );
+        let final_path = dir.join(filename);
+        assert!(
+            !final_path.exists(),
+            "final file should not exist on rename failure"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_report_collision_retry_exhausted() {
+        let dir = temp_dir();
+        let filename = "collision.json";
+        let colliding_temp = dir.join(format!("{}.tmp-collide", filename));
+        fs::File::create(&colliding_temp).unwrap();
+        let err = save_report_impl(&dir, filename, "data", Some("collide"), false, false)
+            .expect_err("expected collision exhaustion");
+        assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+        assert!(colliding_temp.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_report_invalid_filename_rejection() {
+        let dir = temp_dir();
+        let bad = "../outside.json";
+        let err = save_report_impl(&dir, bad, "data", None, false, false)
+            .expect_err("expected invalid filename error");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+        let _ = fs::remove_dir_all(&dir);
     }
 }

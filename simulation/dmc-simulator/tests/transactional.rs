@@ -2,7 +2,6 @@
 
 use std::env;
 use std::fs;
-use std::path::Path;
 use std::os::unix::fs::PermissionsExt;
 
 use dmc_simulator::runner::execute_foundation;
@@ -17,7 +16,10 @@ fn test_no_partial_temp_file_left_on_failure() {
     env::set_var("DMC_OUTPUT_DIR", &tmp_dir);
 
     // Capture existing entries (should be empty).
-    let before: Vec<_> = fs::read_dir(&tmp_dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+    let before: Vec<_> = fs::read_dir(&tmp_dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
 
     // Run foundation – it will fail to write the report.
     let _ = execute_foundation(false);
@@ -27,7 +29,13 @@ fn test_no_partial_temp_file_left_on_failure() {
     let _ = fs::set_permissions(&tmp_dir, perm_writable);
 
     // After execution there should be no new files (including temp files).
-    let after: Vec<_> = fs::read_dir(&tmp_dir).unwrap().map(|e| e.unwrap().file_name()).collect();
-    assert_eq!(before, after, "No temporary files should remain after a failed report write");
+    let after: Vec<_> = fs::read_dir(&tmp_dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(
+        before, after,
+        "No temporary files should remain after a failed report write"
+    );
     let _ = fs::remove_dir_all(&tmp_dir);
 }

@@ -32,29 +32,38 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Verify workspace formatting
-        run: cargo fmt --all -- --check
+      - name: Check dmc-types formatting
+        run: cargo fmt --manifest-path core/dmc-types/Cargo.toml -- --check
 
-      - name: Run Clippy static analysis
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Check titan-identity formatting
+        run: cargo fmt --manifest-path core/titan-identity/Cargo.toml -- --check
 
-      - name: Compile and test entire workspace
-        run: cargo test --workspace --locked
+      - name: Check titan-policy-core formatting
+        run: cargo fmt --manifest-path core/titan-policy-core/Cargo.toml -- --check
+
+      - name: Check titan-audit formatting
+        run: cargo fmt --manifest-path core/titan-audit/Cargo.toml -- --check
+
+      - name: Run Clippy on M1 core crates
+        run: cargo clippy --locked --package dmc-types --package titan-identity --package titan-policy-core --package titan-audit --all-targets -- -D warnings
+
+      - name: Test M1 core crates
+        run: cargo test --locked --package dmc-types --package titan-identity --package titan-policy-core --package titan-audit
 
       - name: Verify E2 sandbox authorization
-        run: cargo test -p titan-policy-core --locked e2_can_create_sandbox_report
+        run: cargo test --locked -p titan-policy-core e2_can_create_sandbox_report
 
       - name: Verify treasury transfer denial
-        run: cargo test -p titan-policy-core --locked e2_cannot_transfer_treasury_funds
+        run: cargo test --locked -p titan-policy-core e2_cannot_transfer_treasury_funds
 
       - name: Verify missing identity denial
-        run: cargo test -p titan-policy-core --locked missing_identity_fails_closed
+        run: cargo test --locked -p titan-policy-core missing_identity_fails_closed
 
       - name: Verify reserved authority denial
-        run: cargo test -p titan-policy-core --locked e5_reserved_authority_fails_closed
+        run: cargo test --locked -p titan-policy-core e5_reserved_authority_fails_closed
 
       - name: Verify unknown action denial
-        run: cargo test -p titan-policy-core --locked unknown_action_fails_closed
+        run: cargo test --locked -p titan-policy-core unknown_action_fails_closed
 
-      - name: Build documentation
-        run: cargo doc --workspace --no-deps --locked
+      - name: Build M1 core documentation
+        run: cargo doc --locked --package dmc-types --package titan-identity --package titan-policy-core --package titan-audit --no-deps

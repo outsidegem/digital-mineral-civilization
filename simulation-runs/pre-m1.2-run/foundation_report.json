@@ -1,0 +1,66 @@
+{
+  "scenario_id": "DMC-FOUNDATION-ENG-001",
+  "simulation_run_id": "sim-run-foundation-eng-20261116",
+  "agent_identity": "eng-worker-01",
+  "department": "Engineering",
+  "requested_action": "run_unit_tests",
+  "identity_verification_result": "LocalProvisionalVerified",
+  "provenance_verification_result": "LiveLineageVerified",
+  "policy_decision": "allow",
+  "policy_reason": "action permitted by M1.1 live provenance policy evaluation",
+  "execution_authorized": true,
+  "execution_outcome": "ExecutedSuccessfully",
+  "audit_events": [
+    {
+      "event_id": "evt-00000001",
+      "sequence": 1,
+      "event_kind": "policy.authorization_decision",
+      "decision": "allow",
+      "resource": "dmc://engineering/workspaces/ci/test-runner/suite"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "name": "AC-ID-01: Agent Identity Resolution",
+      "passed": true,
+      "detail": "Lead and worker claims resolved and live-verified against issuing registry"
+    },
+    {
+      "name": "AC-PROV-02: Provenance Lineage Verification",
+      "passed": true,
+      "detail": "Acyclic lineage, unrevoked delegation, and execution binding verified"
+    },
+    {
+      "name": "AC-POL-03: Strict Policy Authorization",
+      "passed": true,
+      "detail": "Policy strictly evaluated against live registry and tracker, granting authorization"
+    },
+    {
+      "name": "AC-EXEC-04: Guarded Harmless Execution",
+      "passed": true,
+      "detail": "Simulated operation executed strictly behind authorization guard with registered artifact"
+    },
+    {
+      "name": "AC-AUDIT-05: Monotonic Non-Zero Audit Sequencing",
+      "passed": true,
+      "detail": "Audit event sequenced monotonically with unique event ID and canonical resource"
+    },
+    {
+      "name": "AC-ISOL-06: Sandbox Isolation",
+      "passed": true,
+      "detail": "Zero external network calls, zero shell commands; pure in-memory execution"
+    }
+  ],
+  "overall_pass": true,
+  "details": [
+    "Initializing DMC Foundation Scenario...",
+    "Registered eng-lead-01 (E3) and eng-worker-01 (E2)",
+    "Identity resolution: lead and worker verified against registry instance",
+    "Root process registered in provenance tracker",
+    "Process and delegation provenance verified with live seal",
+    "Strict policy evaluated: decision=Allow, authorized=true",
+    "Authorization verified; executing simulated unit test suite...",
+    "Harmless operation completed: artifact art-eng-test-report-001 registered (sha256:57b7cc29507f74ff)",
+    "Audit recorded: sequence=1, event_id=evt-00000001"
+  ]
+}

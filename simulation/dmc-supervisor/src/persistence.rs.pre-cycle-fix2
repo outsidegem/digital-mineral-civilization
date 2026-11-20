@@ -1,0 +1,41 @@
+use crate::envelope::SupervisorEnvelope;
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
+
+/// Write the envelope to a uniquely‑named file in `output_dir`.
+/// Returns the final path on success.
+pub fn write_envelope(
+    envelope: &SupervisorEnvelope,
+    output_dir: &Path,
+    cycle: u32,
+) -> std::io::Result<PathBuf> {
+    // Ensure output directory exists.
+    fs::create_dir_all(output_dir)?;
+
+    // Filename pattern: <timestamp>_<suite_uuid>.json
+    let filename = format!("cycle_{:04}.json", cycle);
+    let final_path = output_dir.join(&filename);
+
+    // Guard against overwriting an existing file.
+    if final_path.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("Report file already exists: {}", final_path.display()),
+        ));
+    }
+
+    // Write to a temporary file first.
+    let temp_name = format!("{}.tmp-{}", filename, Uuid::new_v4());
+    let temp_path = output_dir.join(&temp_name);
+    let mut file = File::create(&temp_path)?;
+    let data = serde_json::to_vec_pretty(envelope)?;
+    file.write_all(&data)?;
+    file.flush()?;
+    // Ensure data is on disk.
+    file.sync_all()?;
+    // Atomically rename.
+    fs::rename(&temp_path, &final_path)?;
+    Ok(final_path)
+}

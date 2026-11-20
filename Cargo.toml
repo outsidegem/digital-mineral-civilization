@@ -6,6 +6,7 @@ members = [
   "core/titan-identity",
   "core/titan-audit",
   "simulation/dmc-simulator",
+  "simulation/dmc-supervisor",
 ]
 
 [workspace.package]

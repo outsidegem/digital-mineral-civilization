@@ -1,0 +1,2 @@
+{"SuiteStarted":{"suite_id":"a6bdae00-359f-40dd-baef-e45931109ea2","ts":"2026-11-20T13:05:03.507353664+00:00","config":"all"}}
+{"ResourceSkipped":{"suite_id":"a6bdae00-359f-40dd-baef-e45931109ea2","reason":"Scenario missing id field"}}

@@ -1,0 +1,21 @@
+[package]
+name = "dmc-supervisor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+sysinfo = "0.30"
+ctrlc = "3"
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "dmc-supervisor"
+path = "src/main.rs"

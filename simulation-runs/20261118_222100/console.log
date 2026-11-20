@@ -1,0 +1,202 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running `target/debug/dmc-simulator run all`
+Suite report saved to: simulation-runs/20261118_222100/all_scenarios_report.json
+================================================================================
+  DMC SIMULATION REPORT: DMC-FOUNDATION-ENG-001 [32m[PASS][0m
+================================================================================
+  Run ID               : sim-run-foundation-eng-20261116
+  Agent Identity       : eng-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : LiveLineageVerified
+  Policy Decision      : allow
+  Execution Authorized : true
+  Execution Outcome    : ExecutedSuccessfully
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-ID-01: Agent Identity Resolution : Lead and worker claims resolved and live-verified against issuing registry
+    ✓ AC-PROV-02: Provenance Lineage Verification : Acyclic lineage, unrevoked delegation, and execution binding verified
+    ✓ AC-POL-03: Strict Policy Authorization : Policy strictly evaluated against live registry and tracker, granting authorization
+    ✓ AC-EXEC-04: Guarded Harmless Execution : Simulated operation executed strictly behind authorization guard with registered artifact
+    ✓ AC-AUDIT-05: Monotonic Non-Zero Audit Sequencing : Audit event sequenced monotonically with unique event ID and canonical resource
+    ✓ AC-ISOL-06: Sandbox Isolation  : Zero external network calls, zero shell commands; pure in-memory execution
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: allow | Resource: dmc://engineering/workspaces/ci/test-runner/suite
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-001-MISSING-IDENTITY [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-001
+  Agent Identity       : none
+  Department           : none
+  Requested Action     : run_unit_tests
+  Identity Status      : MissingIdentity
+  Provenance Status    : NotEvaluatedDueToMissingIdentity
+  Policy Decision      : deny
+  Execution Authorized : false
+  Execution Outcome    : PreventedByPolicy
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-01: Missing Identity Rejected : Request without identity was denied and execution handler was never reached
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: deny  | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-002-REVOKED-IDENTITY [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-002
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : RevokedIdentity
+  Provenance Status    : FailedLiveRevocationCheck
+  Policy Decision      : deny
+  Execution Authorized : false
+  Execution Outcome    : PreventedByPolicy
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-02: Revoked Identity Denied : Revoked agent identity detected during live check; execution blocked
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: deny  | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-003-FORGED-PROVENANCE [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-003
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : ForgedProvenanceRejected
+  Policy Decision      : deny
+  Execution Authorized : false
+  Execution Outcome    : PreventedByPolicy
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-03: Forged Provenance Denied : Forged process authority detected against live tracker and execution blocked
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: deny  | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-004-UNAUTHORIZED-ACTION [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-004
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : transfer_treasury_funds
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : ActionNotPermittedInProcessAuthority
+  Policy Decision      : deny
+  Execution Authorized : false
+  Execution Outcome    : PreventedByPolicy
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-04: Unauthorized Action Never Reaches Handler : TransferTreasuryFunds denied before execution handler could be reached
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: deny  | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-005-UNKNOWN-ACTION [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-005
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : unknown:arbitrary_shell_command
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : UnknownActionFailsClosed
+  Policy Decision      : deny
+  Execution Authorized : false
+  Execution Outcome    : PreventedByPolicy
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-05: Unknown Action Fails Closed : Unknown action variant failed closed; execution blocked
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: deny  | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-006-SCOPE-VIOLATION [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-006
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : ScopeTraversalDetected
+  Policy Decision      : deny
+  Execution Authorized : false
+  Execution Outcome    : PreventedByPolicy
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-06: Resource Scope Violation Denied : Path traversal and scope boundary violation strictly denied by canonical validator
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-007-AUDIT-CONSISTENCY [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-007
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : Consistent
+  Policy Decision      : allow
+  Execution Authorized : true
+  Execution Outcome    : VerifiedAuditConsistency
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-07: Monotonic Audit Consistency : Sequencing strictly monotonic (1 -> 2), unique event IDs, duplicate append rejected
+--------------------------------------------------------------------------------
+  Audit Events (2):
+    [Seq 0001] ID: evt-00000001   | Decision: allow | Resource: dmc://engineering/workspaces/ci/test
+    [Seq 0002] ID: evt-00000002   | Decision: allow | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-008-EXECUTION-FAILURE [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-008
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : LiveLineageVerified
+  Policy Decision      : allow
+  Execution Authorized : true
+  Execution Outcome    : ExecutionFailed:UnitTestAssertionFailure
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-08: Execution Failure Accurately Reported : Execution failure was captured and explicitly reported without masking
+--------------------------------------------------------------------------------
+  Audit Events (1):
+    [Seq 0001] ID: evt-00000001   | Decision: allow | Resource: dmc://engineering/workspaces/ci/test
+================================================================================
+================================================================================
+  DMC SIMULATION REPORT: DMC-SEC-009-AUDIT-FAILURE [32m[PASS][0m
+================================================================================
+  Run ID               : sec-run-009
+  Agent Identity       : sec-worker-01
+  Department           : Engineering
+  Requested Action     : run_unit_tests
+  Identity Status      : LocalProvisionalVerified
+  Provenance Status    : LiveLineageVerified
+  Policy Decision      : allow
+  Execution Authorized : true
+  Execution Outcome    : AuditFailurePreventedSuccessfulCompletion
+--------------------------------------------------------------------------------
+  Acceptance Criteria:
+    ✓ AC-SEC-09: Audit Failure Blocks Success Reporting : Sequencer failure strictly prevents reporting run as successful
+================================================================================
+================================================================================
+  DMC SIMULATION SUITE EXECUTION SUMMARY
+================================================================================
+  Total Scenarios  : 10
+  Passed           : 10
+  Failed           : 0
+  Overall Result   : [32mALL SCENARIOS PASSED[0m
+================================================================================
+

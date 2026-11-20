@@ -1,0 +1,366 @@
+{
+  "suite_id": "1c933b19-b1b7-4708-9603-61c1782db375",
+  "suite_timestamp": "2026-11-19T05:41:04.189284323+00:00",
+  "supervisor_version": "0.1.0",
+  "report": {
+    "all_passed": true,
+    "scenarios": [
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Lead and worker claims resolved and live-verified against issuing registry",
+            "name": "AC-ID-01: Agent Identity Resolution",
+            "passed": true
+          },
+          {
+            "detail": "Acyclic lineage, unrevoked delegation, and execution binding verified",
+            "name": "AC-PROV-02: Provenance Lineage Verification",
+            "passed": true
+          },
+          {
+            "detail": "Policy strictly evaluated against live registry and tracker, granting authorization",
+            "name": "AC-POL-03: Strict Policy Authorization",
+            "passed": true
+          },
+          {
+            "detail": "Simulated operation executed strictly behind authorization guard with registered artifact",
+            "name": "AC-EXEC-04: Guarded Harmless Execution",
+            "passed": true
+          },
+          {
+            "detail": "Audit event sequenced monotonically with unique event ID and canonical resource",
+            "name": "AC-AUDIT-05: Monotonic Non-Zero Audit Sequencing",
+            "passed": true
+          },
+          {
+            "detail": "Zero external network calls, zero shell commands; pure in-memory execution",
+            "name": "AC-ISOL-06: Sandbox Isolation",
+            "passed": true
+          }
+        ],
+        "agent_identity": "eng-worker-01",
+        "audit_events": [
+          {
+            "decision": "allow",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test-runner/suite",
+            "sequence": 1
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Initializing DMC Foundation Scenario...",
+          "Registered eng-lead-01 (E3) and eng-worker-01 (E2)",
+          "Identity resolution: lead and worker verified against registry instance",
+          "Root process registered in provenance tracker",
+          "Process and delegation provenance verified with live seal",
+          "Strict policy evaluated: decision=Allow, authorized=true",
+          "Authorization verified; executing simulated unit test suite...",
+          "Harmless operation completed: artifact art-eng-test-report-001 registered (sha256:57b7cc29507f74ff)",
+          "Audit recorded: sequence=1, event_id=evt-00000001"
+        ],
+        "execution_authorized": true,
+        "execution_outcome": "ExecutedSuccessfully",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "allow",
+        "policy_reason": "action permitted by M1.1 live provenance policy evaluation",
+        "provenance_verification_result": "LiveLineageVerified",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-FOUNDATION-ENG-001",
+        "simulation_run_id": "sim-run-foundation-eng-20261116"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Request without identity was denied and execution handler was never reached",
+            "name": "AC-SEC-01: Missing Identity Rejected",
+            "passed": true
+          }
+        ],
+        "agent_identity": "none",
+        "audit_events": [
+          {
+            "decision": "deny",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          }
+        ],
+        "department": "none",
+        "details": [
+          "Verified fail-closed behavior for missing agent identity"
+        ],
+        "execution_authorized": false,
+        "execution_outcome": "PreventedByPolicy",
+        "identity_verification_result": "MissingIdentity",
+        "overall_pass": true,
+        "policy_decision": "deny",
+        "policy_reason": "missing resolved agent identity",
+        "provenance_verification_result": "NotEvaluatedDueToMissingIdentity",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-001-MISSING-IDENTITY",
+        "simulation_run_id": "sec-run-001"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Revoked agent identity detected during live check; execution blocked",
+            "name": "AC-SEC-02: Revoked Identity Denied",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [
+          {
+            "decision": "deny",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Verified live revocation check blocks execution"
+        ],
+        "execution_authorized": false,
+        "execution_outcome": "PreventedByPolicy",
+        "identity_verification_result": "RevokedIdentity",
+        "overall_pass": true,
+        "policy_decision": "deny",
+        "policy_reason": "live identity, delegation ancestry, or process lineage verification failed",
+        "provenance_verification_result": "FailedLiveRevocationCheck",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-002-REVOKED-IDENTITY",
+        "simulation_run_id": "sec-run-002"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Forged process authority detected against live tracker and execution blocked",
+            "name": "AC-SEC-03: Forged Provenance Denied",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [
+          {
+            "decision": "deny",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Verified tampered process provenance fails closed"
+        ],
+        "execution_authorized": false,
+        "execution_outcome": "PreventedByPolicy",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "deny",
+        "policy_reason": "inconsistent provenance: delegation supplied for non-delegated process",
+        "provenance_verification_result": "ForgedProvenanceRejected",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-003-FORGED-PROVENANCE",
+        "simulation_run_id": "sec-run-003"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "TransferTreasuryFunds denied before execution handler could be reached",
+            "name": "AC-SEC-04: Unauthorized Action Never Reaches Handler",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [
+          {
+            "decision": "deny",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Verified unauthorized high-privilege action denied"
+        ],
+        "execution_authorized": false,
+        "execution_outcome": "PreventedByPolicy",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "deny",
+        "policy_reason": "action not permitted for effective autonomy",
+        "provenance_verification_result": "ActionNotPermittedInProcessAuthority",
+        "requested_action": "transfer_treasury_funds",
+        "scenario_id": "DMC-SEC-004-UNAUTHORIZED-ACTION",
+        "simulation_run_id": "sec-run-004"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Unknown action variant failed closed; execution blocked",
+            "name": "AC-SEC-05: Unknown Action Fails Closed",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [
+          {
+            "decision": "deny",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Verified unknown action fails closed"
+        ],
+        "execution_authorized": false,
+        "execution_outcome": "PreventedByPolicy",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "deny",
+        "policy_reason": "action not permitted for effective autonomy",
+        "provenance_verification_result": "UnknownActionFailsClosed",
+        "requested_action": "unknown:arbitrary_shell_command",
+        "scenario_id": "DMC-SEC-005-UNKNOWN-ACTION",
+        "simulation_run_id": "sec-run-005"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Path traversal and scope boundary violation strictly denied by canonical validator",
+            "name": "AC-SEC-06: Resource Scope Violation Denied",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [],
+        "department": "Engineering",
+        "details": [
+          "Verified canonical URI validator rejects path traversal attempts"
+        ],
+        "execution_authorized": false,
+        "execution_outcome": "PreventedByPolicy",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "deny",
+        "policy_reason": "missing or invalid required policy context (version or canonical resource)",
+        "provenance_verification_result": "ScopeTraversalDetected",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-006-SCOPE-VIOLATION",
+        "simulation_run_id": "sec-run-006"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Sequencing strictly monotonic (1 -> 2), unique event IDs, duplicate append rejected",
+            "name": "AC-SEC-07: Monotonic Audit Consistency",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [
+          {
+            "decision": "allow",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          },
+          {
+            "decision": "allow",
+            "event_id": "evt-00000002",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 2
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Verified monotonic audit sequencing and duplicate protection"
+        ],
+        "execution_authorized": true,
+        "execution_outcome": "VerifiedAuditConsistency",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "allow",
+        "policy_reason": "action permitted by M1.1 live provenance policy evaluation",
+        "provenance_verification_result": "Consistent",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-007-AUDIT-CONSISTENCY",
+        "simulation_run_id": "sec-run-007"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Execution failure was captured and explicitly reported without masking",
+            "name": "AC-SEC-08: Execution Failure Accurately Reported",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [
+          {
+            "decision": "allow",
+            "event_id": "evt-00000001",
+            "event_kind": "policy.authorization_decision",
+            "resource": "dmc://engineering/workspaces/ci/test",
+            "sequence": 1
+          }
+        ],
+        "department": "Engineering",
+        "details": [
+          "Verified execution error handling and faithful reporting"
+        ],
+        "execution_authorized": true,
+        "execution_outcome": "ExecutionFailed:UnitTestAssertionFailure",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "allow",
+        "policy_reason": "action permitted by M1.1 live provenance policy evaluation",
+        "provenance_verification_result": "LiveLineageVerified",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-008-EXECUTION-FAILURE",
+        "simulation_run_id": "sec-run-008"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "detail": "Sequencer failure strictly prevents reporting run as successful",
+            "name": "AC-SEC-09: Audit Failure Blocks Success Reporting",
+            "passed": true
+          }
+        ],
+        "agent_identity": "sec-worker-01",
+        "audit_events": [],
+        "department": "Engineering",
+        "details": [
+          "Verified fail-closed behavior when audit recording fails"
+        ],
+        "execution_authorized": true,
+        "execution_outcome": "AuditFailurePreventedSuccessfulCompletion",
+        "identity_verification_result": "LocalProvisionalVerified",
+        "overall_pass": true,
+        "policy_decision": "allow",
+        "policy_reason": "action permitted by M1.1 live provenance policy evaluation",
+        "provenance_verification_result": "LiveLineageVerified",
+        "requested_action": "run_unit_tests",
+        "scenario_id": "DMC-SEC-009-AUDIT-FAILURE",
+        "simulation_run_id": "sec-run-009"
+      }
+    ],
+    "suite_passed": 10,
+    "suite_total": 10
+  }
+}

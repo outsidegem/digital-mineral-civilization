@@ -1,0 +1,166 @@
+// Functional tests for dmc-supervisor using mock simulator scripts
+
+use std::fs;
+use std::path::PathBuf;
+use tempfile::tempdir;
+
+use dmc_supervisor::config::Config;
+use dmc_supervisor::runner::run_supervisor;
+
+/// Helper to build a Config for tests.
+fn make_config(
+    sim_bin: &PathBuf,
+    out_dir: &PathBuf,
+    max_cycles: u32,
+    resume: bool,
+    min_free: u64,
+) -> Config {
+    Config {
+        suite_mode: "all".to_string(),
+        max_cycles,
+        simulator_bin: sim_bin.clone(),
+        output_dir: out_dir.clone(),
+        json_output: false,
+        resume,
+        min_free_disk_mb: min_free,
+        max_mem_mb: 0,
+    }
+}
+
+#[test]
+fn test_successful_cycle() {
+    let tmp = tempdir().unwrap();
+    let out_dir = tmp.path().join("out");
+    let sim = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("mock_sim.sh");
+    let cfg = make_config(&sim, &out_dir, 1, false, 0);
+    run_supervisor(cfg).expect("Supervisor should succeed");
+    // Expect evidence files
+    assert!(out_dir.join("cycle_0000.json").exists());
+    assert!(out_dir.join("event.log").exists());
+    assert!(out_dir.join("checkpoint.json").exists());
+}
+
+#[test]
+fn test_nonzero_exit_code() {
+    let tmp = tempdir().unwrap();
+    let out_dir = tmp.path().join("out");
+    // Script that exits with code 1
+    let script = out_dir.join("fail.sh");
+    fs::write(&script, "#!/usr/bin/env sh\nexit 1\n").unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&script)
+        .output()
+        .unwrap();
+    let cfg = make_config(&script, &out_dir, 1, false, 0);
+    let res = run_supervisor(cfg);
+    assert!(res.is_err(), "Supervisor should error on non‑zero exit");
+}
+
+#[test]
+fn test_malformed_json() {
+    let tmp = tempdir().unwrap();
+    let out_dir = tmp.path().join("out");
+    let script = out_dir.join("bad_json.sh");
+    fs::write(&script, "#!/usr/bin/env sh\necho 'not a json'\n").unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&script)
+        .output()
+        .unwrap();
+    let cfg = make_config(&script, &out_dir, 1, false, 0);
+    let res = run_supervisor(cfg);
+    assert!(res.is_err(), "Malformed JSON should cause error");
+}
+
+#[test]
+fn test_invalid_suite() {
+    let tmp = tempdir().unwrap();
+    let out_dir = tmp.path().join("out");
+    let script = out_dir.join("invalid_suite.sh");
+    // suite_total is 9 instead of 10
+    fs::write(&script, "#!/usr/bin/env sh\ncat <<'EOF'\n{\n  \"suite_total\": 9,\n  \"suite_passed\": 9,\n  \"all_passed\": true,\n  \"scenarios\": []\n}\nEOF\n").unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&script)
+        .output()
+        .unwrap();
+    let cfg = make_config(&script, &out_dir, 1, false, 0);
+    let res = run_supervisor(cfg);
+    assert!(res.is_err(), "Invalid suite should cause error");
+}
+
+#[test]
+fn test_resume_without_overwrite() {
+    let tmp = tempdir().unwrap();
+    let out_dir = tmp.path().join("out");
+    let sim = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("mock_sim.sh");
+    // First run
+    let cfg1 = make_config(&sim, &out_dir, 1, false, 0);
+    run_supervisor(cfg1).expect("First run ok");
+    // Second run with resume
+    let cfg2 = make_config(&sim, &out_dir, 2, true, 0);
+    run_supervisor(cfg2).expect("Resume run ok");
+    // Should have cycle_0000.json and cycle_0001.json, not overwrite first
+    assert!(out_dir.join("cycle_0000.json").exists());
+    assert!(out_dir.join("cycle_0001.json").exists());
+}
+
+#[test]
+fn test_event_identity_mapping() {
+    use uuid::Uuid;
+    let tmp = tempdir().unwrap();
+    let out_dir = tmp.path().join("out");
+    let sim = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("mock_sim.sh");
+    let cfg = make_config(&sim, &out_dir, 1, false, 0);
+    run_supervisor(cfg).expect("Supervisor should succeed");
+
+    // Load the envelope JSON.
+    let report_path = out_dir.join("cycle_0000.json");
+    let envelope_json = std::fs::read_to_string(&report_path).expect("envelope file");
+    let envelope: serde_json::Value = serde_json::from_str(&envelope_json).expect("parse envelope");
+    let scenarios = envelope["report"]["scenarios"]
+        .as_array()
+        .expect("scenarios array");
+    let mut scenario_ids: Vec<u64> = scenarios
+        .iter()
+        .map(|s| s["id"].as_u64().expect("scenario id"))
+        .collect();
+
+    // Load events.
+    let log_path = out_dir.join("event.log");
+    let log_content = std::fs::read_to_string(&log_path).expect("event.log");
+    let mut seen_event_ids = std::collections::HashSet::new();
+    let mut seen_scen_ids = Vec::new();
+    for line in log_content.lines() {
+        let ev: serde_json::Value = serde_json::from_str(line).expect("parse event");
+        if let Some(obj) = ev.get("ScenarioCompleted") {
+            let sid = obj["scenario_id"].as_u64().expect("event scenario_id");
+            let idx = obj["scenario_index"].as_u64().expect("scenario_index") as usize;
+            let eid = obj["event_id"].as_str().expect("event_id");
+            // Validate UUID format.
+            assert!(Uuid::parse_str(eid).is_ok(), "Invalid UUID in event_id");
+            assert!(!seen_event_ids.contains(eid), "Duplicate event_id");
+            seen_event_ids.insert(eid.to_string());
+            // Preserve ordering.
+            assert_eq!(idx, seen_scen_ids.len(), "Scenario index out of order");
+            seen_scen_ids.push(sid);
+        }
+    }
+    // Verify we recorded exactly ten events.
+    assert_eq!(
+        seen_scen_ids.len(),
+        10,
+        "Incorrect number of ScenarioCompleted events"
+    );
+    // Verify every scenario ID from report appears exactly once.
+    scenario_ids.sort();
+    let mut seen_sorted = seen_scen_ids.clone();
+    seen_sorted.sort();
+    assert_eq!(
+        scenario_ids, seen_sorted,
+        "Scenario IDs mismatch between report and events"
+    );
+}
+
+// Test disk space guard remains last.
